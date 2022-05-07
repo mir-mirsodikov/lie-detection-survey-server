@@ -1,0 +1,45 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgres"
+  url      = env("DATABASE_URL")
+}
+
+model user {
+  id         Int      @id @default(autoincrement())
+  name       String
+  username   String
+  password   String
+  created_at DateTime @default(now())
+  updated_at DateTime @default(now())
+}
+
+model participant {
+  id              Int               @id @default(autoincrement())
+  name            String
+  survey_response survey_response[]
+  created_at      DateTime          @default(now())
+  updated_at      DateTime          @default(now())
+}
+
+model survey {
+  id              Int               @id @default(autoincrement())
+  value           String
+  active          Boolean           @default(true)
+  survey_response survey_response[]
+  created_at      DateTime          @default(now())
+  updated_at      DateTime          @default(now())
+}
+
+model survey_response {
+  id             Int         @id @default(autoincrement())
+  survey_id      Int
+  participant_id Int
+  rating         Int
+  survey         survey      @relation(fields: [survey_id], references: [id])
+  participant    participant @relation(fields: [participant_id], references: [id])
+  created_at     DateTime    @default(now())
+  updated_at     DateTime    @default(now())
+}
