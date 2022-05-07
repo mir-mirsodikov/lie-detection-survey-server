@@ -1,38 +1,32 @@
-import { Router, Request, Response } from 'express';
+import { Router, Request, Response, NextFunction } from 'express';
+import jwt from 'jsonwebtoken';
 import passport from 'passport';
-import passportLocal from 'passport-local';
 import prisma from '../db';
 
 const router = Router();
-const LocalStrategy = passportLocal.Strategy;
-
-export class AuthenticationError extends Error {}
-
-passport.use(
-  new LocalStrategy(async function (username, password, done) {
-    try {
-      const user = await prisma.user.findUnique({
-        where: {
-          username,
-        },
-      });
-
-      if (!user) {
-        throw new AuthenticationError();
-      }
-      if (password !== user.password) {
-        throw new AuthenticationError();
-      }
-
-      return done(null, true);
-    } catch (error) {
-      return done(new AuthenticationError('Invalid username or password'));
-    }
-  }),
-);
+const secret = 'secret';
 
 router.post(
   '/login',
   passport.authenticate('local'),
-  (req: Request, res: Response) => {},
+  async (req: Request, res: Response) => {
+    const { username } = req.body;
+
+    const user = await prisma.user.findUnique({
+      where: {
+        username,
+      },
+    });
+
+    if (user) {
+      const token = jwt.sign(
+        {
+          iss: 'survey-api',
+          sub: user.id,
+        },
+        secret,
+        {expiresIn: '24h'}
+      );
+    }
+  },
 );
