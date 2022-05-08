@@ -38,6 +38,19 @@ passport.use(
   }),
 );
 
+function validateToken(req: Request, res: Response, next: NextFunction) {
+  const token = req.headers.authorization;
+  if (!token) {
+    throw new AuthenticationError('No token provided');
+  }
+  jwt.verify(token, secret, (err, auth) => {
+    if (err) {
+      throw new AuthenticationError('Invalid token');
+    }
+  });
+  next();
+}
+
 router.post(
   '/login',
   passport.authenticate('local', { session: false }),
@@ -66,7 +79,7 @@ router.post(
   },
 );
 
-router.post('/survey', async (req: Request, res: Response) => {
+router.post('/survey', validateToken, async (req: Request, res: Response) => {
   const { value } = req.body;
   const survey = await prisma.survey.create({
     data: {
@@ -76,27 +89,31 @@ router.post('/survey', async (req: Request, res: Response) => {
   res.json(survey);
 });
 
-router.patch('/survey/:id', async (req: Request, res: Response) => {
-  const { id } = req.params;
-  const { value, active } = req.body;
+router.patch(
+  '/survey/:id',
+  validateToken,
+  async (req: Request, res: Response) => {
+    const { id } = req.params;
+    const { value, active } = req.body;
 
-  const currentSurvey = await prisma.survey.findUnique({
-    where: {
-      id: Number(id),
-    },
-  });
+    const currentSurvey = await prisma.survey.findUnique({
+      where: {
+        id: Number(id),
+      },
+    });
 
-  const updatedSurvey = await prisma.survey.update({
-    where: {
-      id: Number(id),
-    },
-    data: {
-      value: value ?? currentSurvey!.value,
-      active: active ?? currentSurvey!.active,
-    },
-  });
+    const updatedSurvey = await prisma.survey.update({
+      where: {
+        id: Number(id),
+      },
+      data: {
+        value: value ?? currentSurvey!.value,
+        active: active ?? currentSurvey!.active,
+      },
+    });
 
-  res.json(updatedSurvey);
-});
+    res.json(updatedSurvey);
+  },
+);
 
 export default router;
