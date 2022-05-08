@@ -135,4 +135,8 @@ router.post('/settings', validateToken, async (req: Request, res: Response) => {
   }
 });
 
+router.get('/authorize', validateToken, (req: Request, res: Response) => {
+  res.send(true);
+});
+
 export default router;
