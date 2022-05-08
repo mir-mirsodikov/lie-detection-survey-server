@@ -116,4 +116,20 @@ router.patch(
   },
 );
 
+router.post('/settings', validateToken, async (req: Request, res: Response) => {
+  const {
+    instructions,
+    wpm
+  } = req.body;
+
+  const settings = await prisma.settings.create({
+    data: {
+      instructions,
+      words_per_minute: Number(wpm),
+    },
+  });
+
+  res.json(settings);
+});
+
 export default router;
