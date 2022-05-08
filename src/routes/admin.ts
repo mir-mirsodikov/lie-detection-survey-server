@@ -7,7 +7,6 @@ import prisma from '../db';
 const router = Router();
 const secret = 'secret';
 
-
 const LocalStrategy = passportLocal.Strategy;
 
 export class AuthenticationError extends Error {}
@@ -16,7 +15,7 @@ passport.use(
   new LocalStrategy({ session: false }, async function (
     username: string,
     password: string,
-    done
+    done,
   ) {
     try {
       const user = await prisma.user.findUnique({
@@ -66,5 +65,38 @@ router.post(
     }
   },
 );
+
+router.post('/survey', async (req: Request, res: Response) => {
+  const { value } = req.body;
+  const survey = await prisma.survey.create({
+    data: {
+      value,
+    },
+  });
+  res.json(survey);
+});
+
+router.patch('/survey/:id', async (req: Request, res: Response) => {
+  const { id } = req.params;
+  const { value, active } = req.body;
+
+  const currentSurvey = await prisma.survey.findUnique({
+    where: {
+      id: Number(id),
+    },
+  });
+
+  const updatedSurvey = await prisma.survey.update({
+    where: {
+      id: Number(id),
+    },
+    data: {
+      value: value ?? currentSurvey!.value,
+      active: active ?? currentSurvey!.active,
+    },
+  });
+
+  res.json(updatedSurvey);
+});
 
 export default router;
