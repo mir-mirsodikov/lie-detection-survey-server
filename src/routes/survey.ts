@@ -10,7 +10,7 @@ router.post('/participant', async (req: Request, res: Response) => {
     data: {
       name,
       email,
-      gender,
+      gender: gender.toLowerCase(),
     },
   });
 
@@ -41,13 +41,31 @@ router.get('/', async (req: Request, res: Response) => {
 router.post('/', async (req: Request, res: Response) => {
   const { rating, surveyId, participantId } = req.body;
 
-  const survey = await prisma.survey_response.create({
-    data: {
-      rating: Number(rating),
-      survey_id: Number(surveyId),
-      participant_id: Number(participantId),
+  const found = await prisma.survey_response.findFirst({
+    where: {
+      survey_id: surveyId,
+      participant_id: participantId,
     },
   });
+
+  if (!found) {
+    await prisma.survey_response.create({
+      data: {
+        rating: Number(rating),
+        survey_id: Number(surveyId),
+        participant_id: Number(participantId),
+      },
+    });
+  } else {
+    await prisma.survey_response.update({
+      where: {
+        id: found.id,
+      },
+      data: {
+        rating: Number(rating),
+      },
+    });
+  }
 
   res.json();
 });
