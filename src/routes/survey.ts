@@ -3,6 +3,24 @@ import prisma from '../db';
 
 const router = Router();
 
+router.post('/participant', async (req: Request, res: Response) => {
+  const { name, email, gender } = req.body;
+
+  const participant = await prisma.participant.create({
+    data: {
+      name,
+      email,
+      gender,
+    },
+  });
+
+  res.json({
+    id: participant.id,
+    name: participant.name,
+    email: participant.email,
+  });
+});
+
 router.get('/', async (req: Request, res: Response) => {
   const surveys = await prisma.survey.findMany({
     where: {
@@ -14,10 +32,24 @@ router.get('/', async (req: Request, res: Response) => {
     return {
       id: survey.id,
       value: survey.value,
-    }
+    };
   });
 
   res.json(values);
+});
+
+router.post('/', async (req: Request, res: Response) => {
+  const { rating, surveyId, participantId } = req.body;
+
+  const survey = await prisma.survey_response.create({
+    data: {
+      rating: Number(rating),
+      survey_id: Number(surveyId),
+      participant_id: Number(participantId),
+    },
+  });
+
+  res.json();
 });
 
 export default router;
