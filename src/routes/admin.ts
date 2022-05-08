@@ -131,12 +131,22 @@ router.post('/settings', validateToken, async (req: Request, res: Response) => {
 
     res.json(settings);
   } else {
-    res.json()
+    res.json();
   }
 });
 
-router.get('/authorize', validateToken, (req: Request, res: Response) => {
-  res.send(true);
+router.get('/authorize', (req: Request, res: Response) => {
+  const token = req.headers.authorization;
+  let response = true;
+  if (!token) {
+    response = false;
+  }
+  jwt.verify(token as string, secret, (err, auth) => {
+    if (err) {
+      response = false;
+    }
+  });
+  res.send(response);
 });
 
 export default router;
