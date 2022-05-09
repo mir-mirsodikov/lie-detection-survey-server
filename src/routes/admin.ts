@@ -86,7 +86,23 @@ router.post('/survey', validateToken, async (req: Request, res: Response) => {
       value,
     },
   });
-  res.json(survey);
+  res.json({
+    id: survey.id,
+    value: survey.value,
+    active: survey.active
+  });
+});
+
+router.get('/survey', validateToken, async (req: Request, res: Response) => {
+  const surveys = await prisma.survey.findMany({});
+  const response = surveys.map((survey) => {
+    return {
+      id: survey.id,
+      value: survey.value,
+      active: survey.active
+    };
+  });
+  res.json(response);
 });
 
 router.patch(
