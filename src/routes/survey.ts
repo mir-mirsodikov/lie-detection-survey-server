@@ -70,4 +70,13 @@ router.post('/', async (req: Request, res: Response) => {
   res.json();
 });
 
+router.get('/settings', async (req: Request, res: Response) => {
+  const settings = await prisma.settings.findFirst({});
+
+  res.json({
+    wpm: settings?.words_per_minute,
+    instructions: settings?.instructions,
+  });
+});
+
 export default router;

@@ -135,9 +135,9 @@ router.patch(
 router.post('/settings', validateToken, async (req: Request, res: Response) => {
   const { instructions, wpm } = req.body;
 
-  const count = await prisma.settings.count();
+  const currentSettings = await prisma.settings.findFirst({});
 
-  if (count === 0) {
+  if (!currentSettings) {
     const settings = await prisma.settings.create({
       data: {
         instructions,
@@ -147,7 +147,16 @@ router.post('/settings', validateToken, async (req: Request, res: Response) => {
 
     res.json(settings);
   } else {
-    res.json();
+    const updatedSettings = await prisma.settings.update({
+      where: {
+        id: currentSettings.id,
+      },
+      data: {
+        instructions,
+        words_per_minute: Number(wpm),
+      },
+    });
+    res.json(updatedSettings);
   }
 });
 
