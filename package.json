@@ -6,7 +6,7 @@
   "scripts": {
     "start": "node ./dist/index.js",
     "build": "tsc --build tsconfig.json",
-    "heroku-postbuild": "npx prisma db push"
+    "heroku-postbuild": "npm run build && npx prisma db push"
   },
   "keywords": [],
   "author": "",
