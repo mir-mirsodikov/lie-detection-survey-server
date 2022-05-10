@@ -89,17 +89,21 @@ router.post('/survey', validateToken, async (req: Request, res: Response) => {
   res.json({
     id: survey.id,
     value: survey.value,
-    active: survey.active
+    active: survey.active,
   });
 });
 
 router.get('/survey', validateToken, async (req: Request, res: Response) => {
-  const surveys = await prisma.survey.findMany({});
+  const surveys = await prisma.survey.findMany({
+    orderBy: {
+      id: 'asc',
+    }
+  });
   const response = surveys.map((survey) => {
     return {
       id: survey.id,
       value: survey.value,
-      active: survey.active
+      active: survey.active,
     };
   });
   res.json(response);
@@ -110,7 +114,30 @@ router.patch(
   validateToken,
   async (req: Request, res: Response) => {
     const { id } = req.params;
-    const { value, active } = req.body;
+    const { value } = req.body;
+
+    const updatedSurvey = await prisma.survey.update({
+      where: {
+        id: Number(id),
+      },
+      data: {
+        value: value,
+      },
+    });
+
+    res.json({
+      id: updatedSurvey.id,
+      value: updatedSurvey.value,
+      active: updatedSurvey.active,
+    });
+  },
+);
+
+router.delete(
+  '/survey/:id',
+  validateToken,
+  async (req: Request, res: Response) => {
+    const { id } = req.params;
 
     const currentSurvey = await prisma.survey.findUnique({
       where: {
@@ -118,17 +145,20 @@ router.patch(
       },
     });
 
-    const updatedSurvey = await prisma.survey.update({
+    const response = await prisma.survey.update({
       where: {
         id: Number(id),
       },
       data: {
-        value: value ?? currentSurvey!.value,
-        active: active ?? currentSurvey!.active,
+        active: !currentSurvey?.active ?? false,
       },
     });
 
-    res.json(updatedSurvey);
+    res.json({
+      id: response.id,
+      value: response.value,
+      active: response.active,
+    });
   },
 );
 
