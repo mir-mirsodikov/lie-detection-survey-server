@@ -3,22 +3,25 @@ import prisma from '../db';
 
 const router = Router();
 
-router.post('/participant', async (req: Request, res: Response) => {
+router.post('/participant', async (req: Request, res: Response, next) => {
   const { name, email, gender } = req.body;
 
-  const participant = await prisma.participant.create({
-    data: {
-      name,
-      email,
-      gender: gender.toLowerCase(),
-    },
-  });
-
-  res.json({
-    id: participant.id,
-    name: participant.name,
-    email: participant.email,
-  });
+  try {
+    const participant = await prisma.participant.create({
+      data: {
+        name,
+        email,
+        gender: gender.toLowerCase(),
+      },
+    });
+    res.json({
+      id: participant.id,
+      name: participant.name,
+      email: participant.email,
+    });
+  } catch (e) {
+    return next(new Error('Email is already in use'));
+  }
 });
 
 router.get('/', async (req: Request, res: Response) => {
