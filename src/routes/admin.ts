@@ -204,4 +204,32 @@ router.get('/authorize', (req: Request, res: Response) => {
   res.send(response);
 });
 
+router.get('/download/questions', validateToken, async (req: Request, res: Response) => {
+  const questions = await prisma.survey.findMany({
+    where: {
+      active: true,
+    },
+    orderBy: {
+      id: 'asc',
+    },
+    select: {
+      id: true,
+      value: true,
+    }
+  });
+
+  // @ts-ignore
+  const replacer = (key, value) => value === null ? '' : value;
+  const header = Object.keys(questions[0]);
+  const csv = [
+    header.join(','),
+    // @ts-ignore
+    ...questions.map(row => header.map(fieldName => JSON.stringify(row[fieldName], replacer)).join(','))
+  ].join('\r\n');
+
+  res.setHeader('Content-Type', 'text/csv');
+  res.attachment('questions.csv');
+  res.send(csv);
+});
+
 export default router;
