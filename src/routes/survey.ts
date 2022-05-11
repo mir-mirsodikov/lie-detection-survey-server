@@ -77,7 +77,7 @@ router.get('/settings', async (req: Request, res: Response) => {
   const settings = await prisma.settings.findFirst({});
 
   res.json({
-    wpm: settings?.words_per_minute,
+    wordDuration: settings?.word_duration,
     instructions: settings?.instructions,
   });
 });

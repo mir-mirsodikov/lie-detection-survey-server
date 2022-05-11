@@ -19,11 +19,11 @@ model user {
 }
 
 model settings {
-  id               Int      @id @default(autoincrement())
-  words_per_minute Int
-  instructions     String
-  created_at       DateTime @default(now())
-  updated_at       DateTime @default(now())
+  id            Int      @id @default(autoincrement())
+  word_duration Int      @map("words_per_minute")
+  instructions  String
+  created_at    DateTime @default(now())
+  updated_at    DateTime @default(now())
 }
 
 model participant {

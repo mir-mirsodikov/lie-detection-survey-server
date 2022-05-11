@@ -164,15 +164,15 @@ router.delete(
 );
 
 router.post('/settings', validateToken, async (req: Request, res: Response) => {
-  const { instructions, wpm } = req.body;
+  const { instructions, wordDuration } = req.body;
 
   const currentSettings = await prisma.settings.findFirst({});
 
   if (!currentSettings) {
     const settings = await prisma.settings.create({
       data: {
-        instructions,
-        words_per_minute: Number(wpm),
+        instructions: instructions,
+        word_duration: Number(wordDuration),
       },
     });
 
@@ -183,8 +183,8 @@ router.post('/settings', validateToken, async (req: Request, res: Response) => {
         id: currentSettings.id,
       },
       data: {
-        instructions,
-        words_per_minute: Number(wpm),
+        instructions: instructions,
+        word_duration: Number(wordDuration),
       },
     });
     res.json(updatedSettings);
