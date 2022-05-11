@@ -3,6 +3,7 @@ import jwt from 'jsonwebtoken';
 import passport from 'passport';
 import passportLocal from 'passport-local';
 import prisma from '../db';
+import { Parser } from 'json2csv';
 
 const router = Router();
 const secret = 'secret';
@@ -204,7 +205,7 @@ router.get('/authorize', (req: Request, res: Response) => {
   res.send(response);
 });
 
-router.get('/download/questions', validateToken, async (req: Request, res: Response) => {
+router.get('/download/questions', validateToken, async (req: Request, res: Response, next: NextFunction) => {
   const questions = await prisma.survey.findMany({
     where: {
       active: true,
@@ -218,18 +219,15 @@ router.get('/download/questions', validateToken, async (req: Request, res: Respo
     }
   });
 
-  // @ts-ignore
-  const replacer = (key, value) => value === null ? '' : value;
-  const header = Object.keys(questions[0]);
-  const csv = [
-    header.join(','),
-    // @ts-ignore
-    ...questions.map(row => header.map(fieldName => JSON.stringify(row[fieldName], replacer)).join(','))
-  ].join('\r\n');
-
-  res.setHeader('Content-Type', 'text/csv');
-  res.attachment('questions.csv');
-  res.send(csv);
+  try {
+    const parser = new Parser();
+    const csv = parser.parse(questions);
+    res.setHeader('Content-Type', 'text/csv');
+    res.attachment('questions.csv');
+    res.send(csv);
+  } catch (e) {
+    return next(new Error('Error downloading questions'));
+  }
 });
 
 export default router;
