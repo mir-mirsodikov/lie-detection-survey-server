@@ -3,7 +3,7 @@ import jwt from 'jsonwebtoken';
 import passport from 'passport';
 import passportLocal from 'passport-local';
 import prisma from '../db';
-import { Parser } from 'json2csv';
+import { Parser, Transform, transforms } from 'json2csv';
 
 const router = Router();
 const secret = 'secret';
@@ -227,6 +227,42 @@ router.get('/download/questions', validateToken, async (req: Request, res: Respo
     res.send(csv);
   } catch (e) {
     return next(new Error('Error downloading questions'));
+  }
+});
+
+router.get('/download/responses', validateToken, async (req: Request, res: Response, next: NextFunction) => {
+  const responses = await prisma.survey_response.findMany({
+    orderBy: {
+      participant_id: 'asc',
+    },
+    select: {
+      id: true,
+      participant_id: true,
+      participant: {
+        select: {
+          name: true,
+          email: true,
+          gender: true
+        }
+      },
+      survey_id: true,
+      survey: {
+        select: {
+          value: true
+        }
+      }
+    }
+  });
+
+  try {
+    const { flatten } = transforms;
+    const parser = new Parser({transforms: [flatten()]});
+    const csv = parser.parse(responses);
+    res.setHeader('Content-Type', 'text/csv');
+    res.attachment('responses.csv');
+    res.send(csv);
+  } catch (e) {
+    return next(new Error('Error downloading responses'));
   }
 });
 
