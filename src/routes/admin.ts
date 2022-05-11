@@ -237,6 +237,7 @@ router.get('/download/responses', validateToken, async (req: Request, res: Respo
     },
     select: {
       id: true,
+      rating: true,
       participant_id: true,
       participant: {
         select: {
