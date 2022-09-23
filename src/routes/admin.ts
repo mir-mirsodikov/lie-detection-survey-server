@@ -237,7 +237,6 @@ router.get('/download/responses', validateToken, async (req: Request, res: Respo
     },
     select: {
       id: true,
-      rating: true,
       participant_id: true,
       participant: {
         select: {
@@ -246,6 +245,7 @@ router.get('/download/responses', validateToken, async (req: Request, res: Respo
           gender: true
         }
       },
+      rating: true,
       survey_id: true,
       survey: {
         select: {
@@ -257,7 +257,8 @@ router.get('/download/responses', validateToken, async (req: Request, res: Respo
 
   try {
     const { flatten } = transforms;
-    const parser = new Parser({transforms: [flatten()]});
+    const columns = ['ID', 'Participant ID', 'Name', 'Email', 'Gender', 'Response', 'Question ID', 'Question'];
+    const parser = new Parser({fields: columns, transforms: [flatten()]});
     const csv = parser.parse(responses);
     res.setHeader('Content-Type', 'text/csv');
     res.attachment('responses.csv');
