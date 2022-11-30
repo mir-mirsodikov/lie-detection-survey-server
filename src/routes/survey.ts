@@ -1,5 +1,8 @@
 import { Router, Request, Response } from 'express';
-import prisma from '../db';
+import { createParticipant } from '../application/participant/CreateParticipant';
+import { getSettings } from '../application/settings/GetSettings';
+import { createSurveyResponse } from '../application/survey/CreateSurveyResponse';
+import { listSurveyForParticipants } from '../application/survey/ListSurveysForParticipants';
 
 const router = Router();
 
@@ -7,79 +10,33 @@ router.post('/participant', async (req: Request, res: Response, next) => {
   const { name, email, gender } = req.body;
 
   try {
-    const participant = await prisma.participant.create({
-      data: {
-        name,
-        email,
-        gender: gender.toLowerCase(),
-      },
-    });
-    res.json({
-      id: participant.id,
-      name: participant.name,
-      email: participant.email,
-    });
+    const participant = await createParticipant(name, email, gender);
+    res.json(participant);
   } catch (e) {
     return next(new Error('Email is already in use'));
   }
 });
 
-router.get('/', async (req: Request, res: Response) => {
-  const surveys = await prisma.survey.findMany({
-    where: {
-      active: true,
-    },
-  });
+router.get('/:userId', async (req: Request, res: Response) => {
+  const userId = parseInt(req.params.userId);
+  const surveys = await listSurveyForParticipants(userId);
 
-  const values = surveys.map((survey) => {
-    return {
-      id: survey.id,
-      value: survey.value,
-    };
-  });
-
-  res.json(values);
+  res.json(surveys);
 });
 
 router.post('/', async (req: Request, res: Response) => {
   const { rating, surveyId, participantId } = req.body;
 
-  const found = await prisma.survey_response.findFirst({
-    where: {
-      survey_id: surveyId,
-      participant_id: participantId,
-    },
-  });
-
-  if (!found) {
-    await prisma.survey_response.create({
-      data: {
-        rating: Number(rating),
-        survey_id: Number(surveyId),
-        participant_id: Number(participantId),
-      },
-    });
-  } else {
-    await prisma.survey_response.update({
-      where: {
-        id: found.id,
-      },
-      data: {
-        rating: Number(rating),
-      },
-    });
-  }
+  await createSurveyResponse(rating, surveyId, participantId); 
 
   res.json();
 });
 
-router.get('/settings', async (req: Request, res: Response) => {
-  const settings = await prisma.settings.findFirst({});
+router.get('/settings/:userId', async (req: Request, res: Response) => {
+  const userId = parseInt(req.params.userId);
+  const settings = await getSettings(userId);
 
-  res.json({
-    wordDuration: settings?.word_duration,
-    instructions: settings?.instructions,
-  });
+  res.json(settings);
 });
 
 export default router;

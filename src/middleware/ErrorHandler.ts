@@ -1,6 +1,6 @@
 import { NextFunction, Request, Response } from 'express';
 import { HttpError } from 'http-errors';
-import { AuthenticationError } from '../routes/admin';
+import { AuthenticationError } from '../application/errors';
 
 /**
  * Error handling class

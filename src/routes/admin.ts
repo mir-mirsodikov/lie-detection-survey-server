@@ -1,16 +1,21 @@
 import { Router, Request, Response, NextFunction } from 'express';
-import jwt from 'jsonwebtoken';
 import passport from 'passport';
 import passportLocal from 'passport-local';
 import prisma from '../db';
 import { Parser, Transform, transforms } from 'json2csv';
+import { createSettings } from '../application/settings/CreateNewSettings';
+import { login } from '../application/auth/Login';
+import { AuthenticationError } from '../application/errors';
+import { validateToken } from '../middleware/TokenValidation';
+import { signup } from '../application/auth/Signup';
+import { listSurveys } from '../application/survey/ListAllSurveys';
+import { createSurvey } from '../application/survey/CreateSurvey';
+import { updateSurvey } from '../application/survey/UpdateSurvey';
+import { deleteSurvey } from '../application/survey/DeleteSurvey';
+import { getAuthorized } from '../application/auth/GetAuthorized';
 
 const router = Router();
-const secret = 'secret';
-
 const LocalStrategy = passportLocal.Strategy;
-
-export class AuthenticationError extends Error {}
 
 passport.use(
   new LocalStrategy({ session: false }, async function (
@@ -39,233 +44,196 @@ passport.use(
   }),
 );
 
-function validateToken(req: Request, res: Response, next: NextFunction) {
-  const token = req.headers.authorization;
-  if (!token) {
-    throw new AuthenticationError('No token provided');
-  }
-  jwt.verify(token, secret, (err, auth) => {
-    if (err) {
-      throw new AuthenticationError('Invalid token');
-    }
-  });
-  next();
-}
-
+/**
+ * Login a user with their username and password
+ * Sends back a token to be used for future requests
+ */
 router.post(
   '/login',
   passport.authenticate('local', { session: false }),
   async (req: Request, res: Response) => {
-    const { username } = req.body;
+    const { username, password } = req.body;
 
-    const user = await prisma.user.findUnique({
-      where: {
-        username,
-      },
-    });
+    const response = await login(username, password);
 
-    if (user) {
-      const token = jwt.sign(
-        {
-          iss: 'survey-api',
-          sub: user.id,
-        },
-        secret,
-        { expiresIn: '24h' },
-      );
-      res.json({
-        token: token,
-      });
+    res.json(response);
+  },
+);
+
+/**
+ * Create a new user and return the token
+ */
+router.post(
+  '/signup',
+  async (req: Request, res: Response, next: NextFunction) => {
+    const { name, username, password } = req.body;
+
+    try {
+      const user = await signup(name, username, password);
+      res.json(user);
+    } catch (error) {
+      next(error);
     }
   },
 );
 
+/**
+ * Create a survey for the user
+ */
 router.post('/survey', validateToken, async (req: Request, res: Response) => {
-  const { value } = req.body;
-  const survey = await prisma.survey.create({
-    data: {
-      value,
-    },
-  });
-  res.json({
-    id: survey.id,
-    value: survey.value,
-    active: survey.active,
-  });
+  const { value, userId } = req.body;
+  const survey = await createSurvey(userId, value);
+  res.json(survey);
 });
 
-router.get('/survey', validateToken, async (req: Request, res: Response) => {
-  const surveys = await prisma.survey.findMany({
-    orderBy: {
-      id: 'asc',
-    }
-  });
-  const response = surveys.map((survey) => {
-    return {
-      id: survey.id,
-      value: survey.value,
-      active: survey.active,
-    };
-  });
-  res.json(response);
-});
+/**
+ * Get all surveys for the user
+ */
+router.get(
+  '/survey/:userId',
+  validateToken,
+  async (req: Request, res: Response) => {
+    const userId = parseInt(req.params.userId);
 
+    const surveys = await listSurveys(userId);
+    res.json(surveys);
+  },
+);
+
+/**
+ * Update a survey
+ */
 router.patch(
   '/survey/:id',
   validateToken,
   async (req: Request, res: Response) => {
     const { id } = req.params;
-    const { value } = req.body;
+    const { value, isActive } = req.body;
 
-    const updatedSurvey = await prisma.survey.update({
-      where: {
-        id: Number(id),
-      },
-      data: {
-        value: value,
-      },
-    });
+    const updatedSurvey = await updateSurvey(parseInt(id), value, isActive);
 
-    res.json({
-      id: updatedSurvey.id,
-      value: updatedSurvey.value,
-      active: updatedSurvey.active,
-    });
+    res.json(updatedSurvey);
   },
 );
 
+/**
+ * Delete a survey
+ */
 router.delete(
   '/survey/:id',
   validateToken,
   async (req: Request, res: Response) => {
     const { id } = req.params;
 
-    const currentSurvey = await prisma.survey.findUnique({
-      where: {
-        id: Number(id),
-      },
-    });
+    const deletedSurvey = await deleteSurvey(parseInt(id));
 
-    const response = await prisma.survey.update({
-      where: {
-        id: Number(id),
-      },
-      data: {
-        active: !currentSurvey?.active ?? false,
-      },
-    });
-
-    res.json({
-      id: response.id,
-      value: response.value,
-      active: response.active,
-    });
+    res.json(deletedSurvey);
   },
 );
 
+/**
+ * Create the settings for a user if not already created
+ * Otherwise, update the settings
+ */
 router.post('/settings', validateToken, async (req: Request, res: Response) => {
-  const { instructions, wordDuration } = req.body;
+  const { instructions, wordDuration, endMessage, userId } = req.body;
 
-  const currentSettings = await prisma.settings.findFirst({});
+  const settings = await createSettings({
+    id: userId,
+    instructions,
+    wordDuration,
+    endMessage,
+  });
 
-  if (!currentSettings) {
-    const settings = await prisma.settings.create({
-      data: {
-        instructions: instructions,
-        word_duration: Number(wordDuration),
-      },
-    });
-
-    res.json(settings);
-  } else {
-    const updatedSettings = await prisma.settings.update({
-      where: {
-        id: currentSettings.id,
-      },
-      data: {
-        instructions: instructions,
-        word_duration: Number(wordDuration),
-      },
-    });
-    res.json(updatedSettings);
-  }
+  res.json(settings);
 });
 
-router.get('/authorize', (req: Request, res: Response) => {
+router.get('/authorize', async (req: Request, res: Response) => {
   const token = req.headers.authorization;
-  let response = true;
-  if (!token) {
-    response = false;
-  }
-  jwt.verify(token as string, secret, (err, auth) => {
-    if (err) {
-      response = false;
-    }
-  });
-  res.send(response);
-});
-
-router.get('/download/questions', validateToken, async (req: Request, res: Response, next: NextFunction) => {
-  const questions = await prisma.survey.findMany({
-    where: {
-      active: true,
-    },
-    orderBy: {
-      id: 'asc',
-    },
-    select: {
-      id: true,
-      value: true,
-    }
-  });
-
-  try {
-    const parser = new Parser();
-    const csv = parser.parse(questions);
-    res.setHeader('Content-Type', 'text/csv');
-    res.attachment('questions.csv');
-    res.send(csv);
-  } catch (e) {
-    return next(new Error('Error downloading questions'));
+  if (token) {
+    const response = await getAuthorized(token);
+    res.send(response);
   }
 });
 
-router.get('/download/responses', validateToken, async (req: Request, res: Response, next: NextFunction) => {
-  const responses = await prisma.survey_response.findMany({
-    orderBy: {
-      participant_id: 'asc',
-    },
-    select: {
-      id: true,
-      participant_id: true,
-      participant: {
-        select: {
-          name: true,
-          email: true,
-          gender: true
-        }
+router.get(
+  '/download/questions',
+  validateToken,
+  async (req: Request, res: Response, next: NextFunction) => {
+    const questions = await prisma.survey.findMany({
+      where: {
+        active: true,
       },
-      rating: true,
-      survey_id: true,
-      survey: {
-        select: {
-          value: true
-        }
-      }
-    }
-  });
+      orderBy: {
+        id: 'asc',
+      },
+      select: {
+        id: true,
+        value: true,
+      },
+    });
 
-  try {
-    const { flatten } = transforms;
-    const columns = ['ID', 'Participant ID', 'Name', 'Email', 'Gender', 'Response', 'Question ID', 'Question'];
-    const parser = new Parser({fields: columns, transforms: [flatten()]});
-    const csv = parser.parse(responses);
-    res.setHeader('Content-Type', 'text/csv');
-    res.attachment('responses.csv');
-    res.send(csv);
-  } catch (e) {
-    return next(new Error('Error downloading responses'));
-  }
-});
+    try {
+      const parser = new Parser();
+      const csv = parser.parse(questions);
+      res.setHeader('Content-Type', 'text/csv');
+      res.attachment('questions.csv');
+      res.send(csv);
+    } catch (e) {
+      return next(new Error('Error downloading questions'));
+    }
+  },
+);
+
+router.get(
+  '/download/responses',
+  validateToken,
+  async (req: Request, res: Response, next: NextFunction) => {
+    const responses = await prisma.survey_response.findMany({
+      orderBy: {
+        participant_id: 'asc',
+      },
+      select: {
+        id: true,
+        participant_id: true,
+        participant: {
+          select: {
+            name: true,
+            email: true,
+            gender: true,
+          },
+        },
+        rating: true,
+        survey_id: true,
+        survey: {
+          select: {
+            value: true,
+          },
+        },
+      },
+    });
+
+    try {
+      const { flatten } = transforms;
+      const columns = [
+        'ID',
+        'Participant ID',
+        'Name',
+        'Email',
+        'Gender',
+        'Response',
+        'Question ID',
+        'Question',
+      ];
+      const parser = new Parser({ fields: columns, transforms: [flatten()] });
+      const csv = parser.parse(responses);
+      res.setHeader('Content-Type', 'text/csv');
+      res.attachment('responses.csv');
+      res.send(csv);
+    } catch (e) {
+      return next(new Error('Error downloading responses'));
+    }
+  },
+);
 
 export default router;
