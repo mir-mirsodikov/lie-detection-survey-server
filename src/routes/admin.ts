@@ -2,7 +2,6 @@ import { Router, Request, Response, NextFunction } from 'express';
 import passport from 'passport';
 import passportLocal from 'passport-local';
 import prisma from '../db';
-import { Parser, Transform, transforms } from 'json2csv';
 import { createSettings } from '../application/settings/CreateNewSettings';
 import { login } from '../application/auth/Login';
 import { AuthenticationError } from '../application/errors';
@@ -13,6 +12,8 @@ import { createSurvey } from '../application/survey/CreateSurvey';
 import { updateSurvey } from '../application/survey/UpdateSurvey';
 import { deleteSurvey } from '../application/survey/DeleteSurvey';
 import { getAuthorized } from '../application/auth/GetAuthorized';
+import { downloadQuestions } from '../application/survey/DownloadSurveyQuestions';
+import { downloadSurveyResponses } from '../application/survey/DownloadSurveyResponses';
 
 const router = Router();
 const LocalStrategy = passportLocal.Strategy;
@@ -157,28 +158,15 @@ router.get('/authorize', async (req: Request, res: Response) => {
 });
 
 router.get(
-  '/download/questions',
+  '/download/questions/:userId',
   validateToken,
   async (req: Request, res: Response, next: NextFunction) => {
-    const questions = await prisma.survey.findMany({
-      where: {
-        active: true,
-      },
-      orderBy: {
-        id: 'asc',
-      },
-      select: {
-        id: true,
-        value: true,
-      },
-    });
-
+    const userId = parseInt(req.params.userId as string);
     try {
-      const parser = new Parser();
-      const csv = parser.parse(questions);
+      const questions = await downloadQuestions(userId);
       res.setHeader('Content-Type', 'text/csv');
       res.attachment('questions.csv');
-      res.send(csv);
+      res.send(questions);
     } catch (e) {
       return next(new Error('Error downloading questions'));
     }
@@ -186,47 +174,12 @@ router.get(
 );
 
 router.get(
-  '/download/responses',
+  '/download/responses/:userId',
   validateToken,
   async (req: Request, res: Response, next: NextFunction) => {
-    const responses = await prisma.survey_response.findMany({
-      orderBy: {
-        participant_id: 'asc',
-      },
-      select: {
-        id: true,
-        participant_id: true,
-        participant: {
-          select: {
-            name: true,
-            email: true,
-            gender: true,
-          },
-        },
-        rating: true,
-        survey_id: true,
-        survey: {
-          select: {
-            value: true,
-          },
-        },
-      },
-    });
-
+    const userId = parseInt(req.params.userId as string);
     try {
-      const { flatten } = transforms;
-      const columns = [
-        'ID',
-        'Participant ID',
-        'Name',
-        'Email',
-        'Gender',
-        'Response',
-        'Question ID',
-        'Question',
-      ];
-      const parser = new Parser({ fields: columns, transforms: [flatten()] });
-      const csv = parser.parse(responses);
+      const csv = await downloadSurveyResponses(userId);
       res.setHeader('Content-Type', 'text/csv');
       res.attachment('responses.csv');
       res.send(csv);
