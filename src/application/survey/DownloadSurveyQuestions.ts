@@ -20,7 +20,7 @@ export async function downloadQuestions(userId: number) {
     let csv = columns.join(',') + '\n';
 
     for (const question of questions) {
-      csv += `${question.id},${question.value}\n`;
+      csv += `${question.id},"${question.value}"\n`;
     }
     return csv;
   } catch (e) {

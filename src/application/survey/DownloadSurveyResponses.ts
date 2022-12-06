@@ -49,7 +49,7 @@ export async function downloadSurveyResponses(userId: number) {
     let csv = columns.join(',') + '\n';
 
     responses.forEach((response) => {
-      csv += `${response.id},${response.participant_id},${response.participant.name},${response.participant.email},${response.participant.gender},${response.rating},${response.survey_id},${response.survey.value}\n`;
+      csv += `${response.id},${response.participant_id},${response.participant.name},${response.participant.email},${response.participant.gender},${response.rating},${response.survey_id},"${response.survey.value}"\n`;
     });
     return csv;
   } catch (e) {
